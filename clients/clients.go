@@ -6,7 +6,7 @@ import (
 )
 
 type OAuthClient interface {
-	GenerateAccessToken(client_id, client_secret string) (string, error)
+	GenerateAccessToken(client_id, client_secret, scopes string) (string, error)
 	Refresh(refreshToken string) (string, error)
 }
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/kofoworola/oauthcli/clients"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -21,7 +22,9 @@ func main() {
 	var client clients.OAuthClient
 	switch kingpin.Parse() {
 	case "authorization_code":
-		client = clients.NewAuthCodeClient(authURL, tokenURL, "", nil)
+		client = clients.NewAuthCodeClient(strings.TrimSpace(*authURL), strings.TrimSpace(*tokenURL), "", nil)
 	}
-	fmt.Printf("Command is %s", kingpin.Parse())
+
+	token, _ := client.GenerateAccessToken(*clientID, *clientSecret, *scopes)
+	fmt.Printf("\n token is: %s\n\n", token)
 }
