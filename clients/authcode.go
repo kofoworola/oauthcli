@@ -1,7 +1,7 @@
 package clients
 
 import (
-	"bufio"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kofoworola/oauthcli/utils"
+	"golang.org/x/oauth2"
 )
 
 type AuthCodeClient struct {
@@ -37,7 +38,7 @@ func NewAuthCodeClient(authURL, tokenURL, redirectURL string, client *http.Clien
 	}
 }
 
-func (a *AuthCodeClient) GenerateAccessToken(client_id, client_secret, scopes string, customParams map[string]string) (string, error) {
+func (a *AuthCodeClient) GenerateAccessToken(client_id, client_secret, scopes string, customParams map[string]string) (*oauth2.Token, error) {
 	a.checkTokenURL()
 	// todo redirect uri
 	v := url.Values{
@@ -64,30 +65,29 @@ func (a *AuthCodeClient) GenerateAccessToken(client_id, client_secret, scopes st
 	if err != nil {
 		fmt.Printf("error opening redirect url, manually visit %s to authorize\n", redirectURL)
 	}
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Printf("Enter the link you were redirected to after authorization:\n>")
-	returnedURL, err := reader.ReadString('\n')
-	if err != nil {
-		return "", fmt.Errorf("error reading input: %w", err)
-	}
 
+	returnedURL, err := utils.ReadLine("Enter the link you were redirected to after authorization")
+	// TODO handle error properly
+	// TODO loop de loop
+	if err != nil {
+		fmt.Printf("error reading redirect URL: %v", err)
+	}
 	u, err := url.Parse(strings.TrimSpace(returnedURL))
 	for err != nil {
-		fmt.Printf("Invalid URL (%v), please enter the URL you were redirected to:\n>", err)
-		returnedURL, err = reader.ReadString('\n')
+		returnedURL, err = utils.ReadLine(fmt.Sprintf("Invalid URL (%v), please enter the URL you were redirected to:\n>", err))
 		if err != nil {
-			return "", fmt.Errorf("error reading input: %w", err)
+			return nil, fmt.Errorf("error reading input: %w", err)
 		}
 		u, err = url.Parse(returnedURL)
 	}
 
 	code := u.Query().Get("code")
 	if code == "" {
-		return "", fmt.Errorf("URL does not contain the `code` parameter")
+		return nil, fmt.Errorf("URL does not contain the `code` parameter")
 	}
 	tokenURL, err := url.Parse(a.tokenURL)
 	if err != nil {
-		return "", fmt.Errorf("Invalid Token URL:%w", err)
+		return nil, fmt.Errorf("Invalid Token URL:%w", err)
 	}
 
 	accessTokenParams := url.Values{
@@ -106,13 +106,15 @@ func (a *AuthCodeClient) GenerateAccessToken(client_id, client_secret, scopes st
 	}
 	resp, err := a.client.Do(r)
 	if err != nil {
-		return "", fmt.Errorf("error running request: %w", err)
+		return nil, fmt.Errorf("error running request: %w", err)
 	}
-	respBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("error reading body: %w", err)
+
+	var token oauth2.Token
+	// TODO return json response
+	if err := json.NewDecoder(resp.Body).Decode(&token); err != nil {
+		return nil, fmt.Errorf("error decoding response: %w", err)
 	}
-	return string(respBytes), err
+	return &token, err
 }
 
 func (a *AuthCodeClient) Refresh(refreshToken string) (string, error) {
@@ -123,13 +125,16 @@ func (a *AuthCodeClient) Refresh(refreshToken string) (string, error) {
 func (a *AuthCodeClient) checkTokenURL() {
 	for a.tokenURL == "" {
 		lastSlash := strings.LastIndex(a.authURL, "/")
-		tokenURL := a.authURL[:lastSlash+1] + "token"
-		tokenURL, err := utils.ReadLine(fmt.Sprintf("Enter token URL, leave empty to use %s", tokenURL))
+		defaultURL := a.authURL[:lastSlash+1] + "token"
+		tokenURL, err := utils.ReadLine(fmt.Sprintf("Token URL(%s)", defaultURL))
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		a.tokenURL = tokenURL
+		if tokenURL == "" {
+			a.tokenURL = defaultURL
+		} else {
+			a.tokenURL = tokenURL
+		}
 	}
-	fmt.Printf("token url is: %s\n", a.tokenURL)
 }
