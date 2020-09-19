@@ -16,21 +16,21 @@ import (
 	"golang.org/x/oauth2"
 )
 
-type AuthCodeClient struct {
+type authCodeClient struct {
 	client      *http.Client
 	authURL     string
 	tokenURL    string
 	redirectURL string
 }
 
-func NewAuthCodeClient(authURL, tokenURL, redirectURL string, client *http.Client) *AuthCodeClient {
+func NewAuthCodeClient(authURL, tokenURL, redirectURL string, client *http.Client) *authCodeClient {
 	if client == nil {
 		client = &http.Client{
 			Timeout: time.Second * 30,
 		}
 	}
 
-	return &AuthCodeClient{
+	return &authCodeClient{
 		client:      client,
 		authURL:     authURL,
 		tokenURL:    tokenURL,
@@ -38,7 +38,7 @@ func NewAuthCodeClient(authURL, tokenURL, redirectURL string, client *http.Clien
 	}
 }
 
-func (a *AuthCodeClient) GenerateAccessToken(client_id, client_secret, scopes string, customParams map[string]string) (*oauth2.Token, error) {
+func (a *authCodeClient) GenerateAccessToken(client_id, client_secret, scopes string, customParams map[string]string) (*oauth2.Token, error) {
 	a.checkTokenURL()
 	// todo redirect uri
 	v := url.Values{
@@ -47,6 +47,7 @@ func (a *AuthCodeClient) GenerateAccessToken(client_id, client_secret, scopes st
 		"state":         {"TEST STATE"},
 		"scope":         {scopes},
 	}
+	// TODO support values having multiple values
 	for key, val := range customParams {
 		v[key] = []string{val}
 	}
@@ -117,12 +118,12 @@ func (a *AuthCodeClient) GenerateAccessToken(client_id, client_secret, scopes st
 	return &token, err
 }
 
-func (a *AuthCodeClient) Refresh(refreshToken string) (string, error) {
+func (a *authCodeClient) Refresh(refreshToken string) (string, error) {
 	return "", nil
 }
 
 // TODO move error handling out
-func (a *AuthCodeClient) checkTokenURL() {
+func (a *authCodeClient) checkTokenURL() {
 	for a.tokenURL == "" {
 		lastSlash := strings.LastIndex(a.authURL, "/")
 		defaultURL := a.authURL[:lastSlash+1] + "token"
