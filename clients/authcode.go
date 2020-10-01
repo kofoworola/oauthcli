@@ -6,87 +6,71 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"os"
-	"os/exec"
-	"runtime"
 	"strings"
 	"time"
 
 	"github.com/kofoworola/oauthcli/utils"
-	"golang.org/x/oauth2"
 )
 
-type authCodeClient struct {
+type authCode struct {
 	client      *http.Client
 	authURL     string
 	tokenURL    string
 	redirectURL string
+	util        utils.Util
 }
 
-func NewAuthCodeClient(authURL, tokenURL, redirectURL string, client *http.Client) *authCodeClient {
+func NewAuthCode(authURL, tokenURL, redirectURL string, client *http.Client, util utils.Util) *authCode {
 	if client == nil {
 		client = &http.Client{
 			Timeout: time.Second * 30,
 		}
 	}
 
-	return &authCodeClient{
+	return &authCode{
 		client:      client,
 		authURL:     authURL,
 		tokenURL:    tokenURL,
 		redirectURL: redirectURL,
+		util:        util,
 	}
 }
 
-func (a *authCodeClient) GenerateAccessToken(client_id, client_secret, scopes string, customParams map[string]string) (*oauth2.Token, error) {
-	a.checkTokenURL()
+func (c *authCode) GenerateAccessToken(client_id, client_secret, scopes string, customParams map[string]string) (*Token, error) {
+	c.checkTokenURL()
+
+	// todo fix state
 	// todo redirect uri
 	v := url.Values{
 		"response_type": {"code"},
 		"client_id":     {client_id},
-		"state":         {"TEST STATE"},
+		"state":         {"rand"},
 		"scope":         {scopes},
+		"redirect_uri":  {c.redirectURL},
 	}
 	// TODO support values having multiple values
 	for key, val := range customParams {
 		v[key] = []string{val}
 	}
-	redirectURL := fmt.Sprintf("%s?%s", strings.TrimRight(a.authURL, "?"), v.Encode())
-	var err error
-	switch runtime.GOOS {
-	case "linux":
-		err = exec.Command("xdg-open", redirectURL).Start()
-	case "windows":
-		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", redirectURL).Start()
-	case "darwin":
-		err = exec.Command("open", redirectURL).Start()
-	default:
-		err = fmt.Errorf("unsupported platform")
-	}
-	if err != nil {
-		fmt.Printf("error opening redirect url, manually visit %s to authorize\n", redirectURL)
+	redirectURL := fmt.Sprintf("%s?%s", strings.TrimRight(c.authURL, "?"), v.Encode())
+	if err := c.util.OpenURL(redirectURL); err != nil {
+		return nil, err
 	}
 
-	returnedURL, err := utils.ReadLine("Enter the link you were redirected to after authorization")
-	// TODO handle error properly
-	// TODO loop de loop
+	returnedURL, err := c.util.ReadLine("Enter the link you were redirected to after authorization", false)
 	if err != nil {
-		fmt.Printf("error reading redirect URL: %v", err)
+		return nil, fmt.Errorf("error reading redirect URL: %w", err)
 	}
 	u, err := url.Parse(strings.TrimSpace(returnedURL))
 	for err != nil {
-		returnedURL, err = utils.ReadLine(fmt.Sprintf("Invalid URL (%v), please enter the URL you were redirected to:\n>", err))
-		if err != nil {
-			return nil, fmt.Errorf("error reading input: %w", err)
-		}
-		u, err = url.Parse(returnedURL)
+		return nil, fmt.Errorf("%s is not a valid url: %w", returnedURL, err)
 	}
 
 	code := u.Query().Get("code")
 	if code == "" {
 		return nil, fmt.Errorf("URL does not contain the `code` parameter")
 	}
-	tokenURL, err := url.Parse(a.tokenURL)
+	tokenURL, err := url.Parse(c.tokenURL)
 	if err != nil {
 		return nil, fmt.Errorf("Invalid Token URL:%w", err)
 	}
@@ -105,37 +89,42 @@ func (a *authCodeClient) GenerateAccessToken(client_id, client_secret, scopes st
 			"Content-Type": {"application/x-www-form-urlencoded"},
 		},
 	}
-	resp, err := a.client.Do(r)
+	resp, err := c.client.Do(r)
 	if err != nil {
 		return nil, fmt.Errorf("error running request: %w", err)
 	}
+	if resp.StatusCode != http.StatusOK {
+		var errResp errorResponse
+		if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
+			return nil, fmt.Errorf("error decoding error response: %w", err)
+		}
+		return nil, fmt.Errorf("%s - %s", errResp.Error, errResp.Description)
+	}
 
-	var token oauth2.Token
-	// TODO return json response
+	var token Token
 	if err := json.NewDecoder(resp.Body).Decode(&token); err != nil {
 		return nil, fmt.Errorf("error decoding response: %w", err)
 	}
 	return &token, err
 }
 
-func (a *authCodeClient) Refresh(refreshToken string) (string, error) {
+func (a *authCode) Refresh(refreshToken string) (string, error) {
 	return "", nil
 }
 
-// TODO move error handling out
-func (a *authCodeClient) checkTokenURL() {
-	for a.tokenURL == "" {
-		lastSlash := strings.LastIndex(a.authURL, "/")
-		defaultURL := a.authURL[:lastSlash+1] + "token"
-		tokenURL, err := utils.ReadLine(fmt.Sprintf("Token URL(%s)", defaultURL))
+func (c *authCode) checkTokenURL() error {
+	if c.tokenURL == "" {
+		lastSlash := strings.LastIndex(c.authURL, "/")
+		defaultURL := c.authURL[:lastSlash+1] + "token"
+		tokenURL, err := c.util.ReadLine(fmt.Sprintf("Token URL(%s)", defaultURL), false)
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			return err
 		}
 		if tokenURL == "" {
-			a.tokenURL = defaultURL
+			c.tokenURL = defaultURL
 		} else {
-			a.tokenURL = tokenURL
+			c.tokenURL = tokenURL
 		}
 	}
+	return nil
 }

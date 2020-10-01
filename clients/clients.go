@@ -24,8 +24,8 @@ type errorResponse struct {
 }
 
 type OAuthClient interface {
-	GenerateAccessToken(client_id, client_secret, scopes string, customParams map[string]string) (Token, error)
-	Refresh(refreshToken string) (string, error)
+	GenerateAccessToken(client_id, client_secret, scopes string, customParams map[string]string) (*Token, error)
+	//	Refresh(refreshToken string) (string, error)
 }
 
 type GenerateAccessTokenOption func(*http.Client, url.Values)

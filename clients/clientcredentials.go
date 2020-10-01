@@ -15,6 +15,7 @@ type clientCredentials struct {
 	authURL string
 }
 
+// TODO save URL as url.URL
 func NewClientCredentialClient(authURL string, client *http.Client) *clientCredentials {
 	if client == nil {
 		client = &http.Client{
@@ -38,7 +39,6 @@ func (c *clientCredentials) GenerateAccessToken(client_id, client_secret, scopes
 		values.Add(key, val)
 	}
 
-	// parse url
 	u, err := url.Parse(c.authURL)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing URL: %w", err)
