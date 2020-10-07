@@ -60,7 +60,7 @@ func main() {
 	if err != nil {
 		utils.PrintError(err)
 	}
-	fmt.Printf("\n token is: %#v\n\n", token)
+	fmt.Printf("token is: %s", token.AccessToken)
 }
 
 func validateClientSecret(util *utils.MainUtil) (string, error) {
