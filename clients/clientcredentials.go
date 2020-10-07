@@ -70,7 +70,7 @@ func (c *clientCredentials) GenerateAccessToken(client_id, client_secret, scopes
 	if err := json.NewDecoder(resp.Body).Decode(&token); err != nil {
 		return nil, fmt.Errorf("error decoding response: %w", err)
 	}
-	token.ExpiryTime = time.Now().Add(time.Second * time.Duration(token.ExpiresIn))
+	token.ExpiryTime = time.Now().Add(time.Duration(token.ExpiresIn) * time.Second)
 
 	return &token, nil
 }

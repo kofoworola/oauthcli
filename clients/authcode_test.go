@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	authURL = `https://authserver.com/auth?response_type=code&client_id=client_id&redirect_uri=https://redirect_uri.com/callback&scope=create&state=rand`
+	authURL = `https://authserver.com/auth?response_type=code&client_id=client_id&redirect_uri=https://callback.com/callback&scope=create&state=rand`
 )
 
 func TestAuthCode_GenerateAccessToken(t *testing.T) {
@@ -64,7 +64,7 @@ func TestAuthCode_GenerateAccessToken(t *testing.T) {
 			c := NewAuthCode(
 				"https://authserver.com/auth",
 				"",
-				"https://redirect_uri.com/callback",
+				"https://callback.com/callback",
 				client,
 				util,
 			)

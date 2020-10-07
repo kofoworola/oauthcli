@@ -11,17 +11,27 @@ import (
 )
 
 var (
-	clientID     = kingpin.Flag("client-id", "The client ID to be used in the oAuth token request.").Required().String()
-	clientSecret = kingpin.Flag("client-secret", "The client Secret to be used in the oAuth token request").Default("").String()
+	clientID     = kingpin.Flag("client-id", "The client ID to be used in getting the access_token.").Required().String()
+	clientSecret = kingpin.Flag("client-secret", "The client Secret to be used in the getting the access_token").Default("").String()
 	scopes       = kingpin.Flag("scopes", "The requested scopes").Required().String()
 	customParams = kingpin.Flag("extra", "Extra params to be sent along with the client_id during authentication request").StringMap()
 
-	auth_code   = kingpin.Command("authcode", "Perform an authorization_code grant flow")
-	authCodeURL = auth_code.Arg("auth_url", "The URL that will be used for the authorization code generation").Required().String()
-	tokenURL    = auth_code.Arg("token_url", "The URL to be used in token generation").Default("").String()
+	authCode                = kingpin.Command("authcode", "Perform an authorization_code grant flow; https://oauth.net/2/grant-types/authorization-code/")
+	authCodeURL             = authCode.Arg("auth_url", "The URL that will be used for the authorization code generation").Required().String()
+	tokenURL                = authCode.Arg("token_url", "The URL to be used in token generation").Default("").String()
+	authCodeRedirectURLFLag = authCode.Flag("redirect_url", "Redirect URL to be passed with the request").Default("").String()
 
-	client_credentials = kingpin.Command("client_credentials", "Perform client_credential grant flow")
+	client_credentials = kingpin.Command("client_credentials", "Perform client_credential grant flow; https://oauth.net/2/grant-types/client-credentials/")
 	clienCredsURL      = client_credentials.Arg("auth_url", "URL for generating client credential based access token").Required().String()
+
+	implicitGrant           = kingpin.Command("implicit", "Perform (Legacy) implicit grant type; https://oauth.net/2/grant-types/implicit/")
+	implicitURL             = implicitGrant.Arg("auth_url", "URL for generating implicit access_token").Required().String()
+	implicitRedirectURLFlag = implicitGrant.Flag("redirect_url", "Redirect URL to be passed with the request").Default("").String()
+
+	passwordGrant = kingpin.Command("password", "Perform (Legacy) password grant type; https://oauth.net/2/grant-types/password/")
+	passwordURL   = passwordGrant.Arg("auth_url", "URL for generatining password flow access_token").Required().String()
+	usernameFlag  = passwordGrant.Flag("username", "Username for authorization").Required().String()
+	passwordFlag  = passwordGrant.Flag("password", "User password").Default("").String()
 )
 
 func main() {
@@ -37,9 +47,13 @@ func main() {
 	var client clients.OAuthClient
 	switch command {
 	case "authcode":
-		client = clients.NewAuthCode(strings.TrimSpace(*authCodeURL), strings.TrimSpace(*tokenURL), "", nil, util)
+		client = clients.NewAuthCode(strings.TrimSpace(*authCodeURL), strings.TrimSpace(*tokenURL), *authCodeRedirectURLFLag, nil, util)
 	case "client_credentials":
 		client = clients.NewClientCredentialClient(strings.TrimSpace(*clienCredsURL), nil)
+	case "implicit":
+		client = clients.NewImplicitClient(*implicitURL, *implicitRedirectURLFlag, util)
+	case "password":
+		client = clients.NewPasswordClient(*passwordURL, *usernameFlag, *passwordFlag, nil, util)
 	}
 
 	token, err := client.GenerateAccessToken(*clientID, clientSecretValue, *scopes, *customParams)
