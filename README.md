@@ -52,4 +52,9 @@ Commands:
 ### Dealing with callbacks
 Since grant flows like `auth_code` and `implicit` involves the a redirect to a callback URL, you would need to enter the URL redirected to during the callback to the CLI, at which point, an access_token can be exctracted.
 
-![redirect link](https://imgur.com/a/C1f8kCH)
+![redirect link](https://i.imgur.com/aqztbpV.png)
+
+## TODO
+- Using refresh tokens.
+- Adding device grant flow.
+- Bug fixes as they come up.
