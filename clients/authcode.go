@@ -57,6 +57,7 @@ func (c *authCode) GenerateAccessToken(client_id, client_secret, scopes string, 
 		return nil, err
 	}
 
+	// TODO work and get error in returned code
 	returnedURL, err := c.util.ReadLine("Enter the link you were redirected to after authorization", false)
 	if err != nil {
 		return nil, fmt.Errorf("error reading redirect URL: %w", err)
@@ -80,6 +81,7 @@ func (c *authCode) GenerateAccessToken(client_id, client_secret, scopes string, 
 		"code":          {code},
 		"client_id":     {client_id},
 		"client_secret": {client_secret},
+		"redirect_uri":  {c.redirectURL},
 	}
 	r := &http.Request{
 		Method: "POST",
@@ -96,7 +98,7 @@ func (c *authCode) GenerateAccessToken(client_id, client_secret, scopes string, 
 	if resp.StatusCode != http.StatusOK {
 		var errResp errorResponse
 		if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-			return nil, fmt.Errorf("error decoding error response: %w", err)
+			return nil, fmt.Errorf("status code: %s; error decoding error response: %w", resp.Status, err)
 		}
 		return nil, fmt.Errorf("%s - %s", errResp.Error, errResp.Description)
 	}
